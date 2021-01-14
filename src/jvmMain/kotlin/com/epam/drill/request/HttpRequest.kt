@@ -1,7 +1,11 @@
 package com.epam.drill.request
 
-import com.epam.drill.plugin.DrillRequest
-import java.nio.ByteBuffer
+import com.epam.drill.agent.instrument.*
+import com.epam.drill.logger.*
+import com.epam.drill.logging.*
+import com.epam.drill.plugin.*
+import java.nio.*
+import kotlin.reflect.jvm.*
 
 object HttpRequest {
     private const val HTTP_DETECTOR_BYTES_COUNT = 8
@@ -9,6 +13,7 @@ object HttpRequest {
         setOf("OPTIONS", "GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "TRACE", "CONNECT", "PRI")
     private val HEADERS_END_MARK = "\r\n\r\n".encodeToByteArray()
     private const val DRILL_SESSION_ID_HEADER_NAME = "drill-session-id"
+    private val logger = Logging.logger(HttpRequest::class.jvmName)
 
     fun parse(buffers: Array<ByteBuffer>) = runCatching {
         val rawBytes = buffers[0].array()
@@ -27,6 +32,33 @@ object HttpRequest {
             }
         }
     }.onFailure {  }.getOrNull()
+
+    fun parse2(headers: Map<String, String>?) {//ServletRequest tomcat 9
+//        logger.warn { "headers $headers" }
+        logger.warn { "start parse2..." }
+        headers?.get(DRILL_SESSION_ID_HEADER_NAME)?.let { drillSessionId ->
+            val filterKeys = headers.filter { it.key.startsWith("drill-") }
+//            idHeaderPair, // todo
+//            val adminUrl = retrieveAdminUrl() //todo
+            val adminUrl = "ws://localhost:8090"
+
+            val headers1 = filterKeys.plus("drill-admin-url" to adminUrl).plus(
+                "drill-agent-id" to "Petclinic"
+            )
+            logger.warn { "set to thread storage for drillSessionId $drillSessionId filterKeys drill: $headers1" }
+            RequestHolder.store(DrillRequest(drillSessionId, headers1))
+        }
+//        sessionId?.let {
+//            logger.warn { "my drillSessionId $it" }
+//            RequestHolder.store(DrillRequest(it, emptyMap()))//todo need all headers??
+//        }
+    }
+//    private fun retrieveAdminUrl(): String {
+//        return if (secureAdminAddress != null) {
+//            secureAdminAddress?.toUrlString(false).toString()
+//        } else adminAddress?.toUrlString(false).toString()
+//
+//    }
 
     private fun ByteArray.indexOf(arr: ByteArray) = run {
         for (index in indices) {

@@ -33,6 +33,7 @@ fun classLoadEvent(
     if (isBootstrapClassLoading(loader, protection_domain) && !config.isTlsApp) return
     val kClassName = clsName?.toKString()
     if (kClassName == null || classData == null || kClassName.startsWith(DRILL_PACKAGE)) return
+//    logger.warn { "classLoadEvent for class name:$kClassName" }
     try {
         val classBytes = ByteArray(classDataLen).apply {
             Memory.of(classData, classDataLen).loadByteArray(0, this)
@@ -69,6 +70,28 @@ fun classLoadEvent(
                 transformers += { bytes -> plugin.instrument(kClassName, bytes) }
             }
         }
+
+        val isTomcat = kClassName.startsWith("org/apache/catalina/core/ApplicationFilterChain")
+        if (isTomcat) {
+            val retrieveAdminUrl = retrieveAdminUrl()
+            val idHeaderPair = idHeaderPairFromConfig()
+            logger.warn { "$isTomcat kClassName $kClassName. $retrieveAdminUrl; $idHeaderPair" }
+            val idHeaderKey = idHeaderPair.first
+            val idHeaderValue = idHeaderPair.second
+            transformers += { bytes ->
+                TomcatTransformer.transform(
+                    kClassName, bytes, loader, retrieveAdminUrl, idHeaderKey, idHeaderValue
+                )
+            }
+        }
+        if (kClassName.startsWith("javax/servlet/FilterChain")) {
+            logger.warn { "kClassName FilterChain $kClassName" }
+
+        }
+        val classReader = ClassReader(classBytes)
+        if (classReader.superName == "javax/servlet/FilterChain") {
+            logger.warn { "kClassName $kClassName" } //todo remove
+        }
         if (transformers.any()) {
             transformers.fold(classBytes) { bytes, transformer ->
                 transformer(bytes) ?: bytes
@@ -82,6 +105,19 @@ fun classLoadEvent(
             "Can't retransform class: $kClassName, ${classData.readBytes(classDataLen).contentToString()}"
         }
     }
+}
+
+fun idHeaderPairFromConfig(): Pair<String, String> =
+    when (val groupId = agentConfig.serviceGroupId) {
+        "" -> "drill-agent-id" to agentConfig.id
+        else -> "drill-group-id" to groupId
+    }
+
+fun retrieveAdminUrl(): String {//todo string?
+    return if (secureAdminAddress != null) {
+        secureAdminAddress?.toUrlString(false).toString()
+    } else adminAddress?.toUrlString(false).toString()
+
 }
 
 private fun convertToNativePointers(

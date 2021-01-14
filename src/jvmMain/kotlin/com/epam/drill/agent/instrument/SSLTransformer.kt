@@ -15,6 +15,9 @@ actual object SSLTransformer {
     actual fun transform(className: String, classfileBuffer: ByteArray, loader: Any?): ByteArray? {
         return try {
             ClassPool.getDefault().appendClassPath(LoaderClassPath(loader as? ClassLoader))
+//            val kFunction1 = HttpRequest::parse
+//            val kFunction2 = HttpRequest.parse(buffers = classfileBuffer)
+//            val name = kFunction1.name
             ClassPool.getDefault().makeClass(ByteArrayInputStream(classfileBuffer))?.run {
                 getMethod(
                     "unwrap",
@@ -26,6 +29,9 @@ actual object SSLTransformer {
                 ) ?: run {
                     return null
                 }
+                //todo ((RequestFacade) request).getHeader("host")
+
+                //todo add another: ((RequestFacade) request).getHeader("session_id")
                 return toBytecode()
 
 

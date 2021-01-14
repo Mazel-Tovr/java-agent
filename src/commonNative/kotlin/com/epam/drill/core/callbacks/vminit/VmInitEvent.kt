@@ -52,6 +52,6 @@ fun jvmtiEventVMInitEvent(env: CPointer<jvmtiEnvVar>?, jniEnv: CPointer<JNIEnvVa
 private fun isHttpHookEnabled() = memScoped {
     alloc<CPointerVar<ByteVar>>().apply {
         GetSystemProperty("drill.http.hook.enabled", this.ptr)
-    }.value?.toKString()?.toBoolean() ?: true
+    }.value?.toKString()?.toBoolean() ?: false//todo return true
 }
 

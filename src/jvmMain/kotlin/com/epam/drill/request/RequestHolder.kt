@@ -26,7 +26,7 @@ actual object RequestHolder {
 
     }
 
-    fun store(drillRequest: DrillRequest) {
+    fun store(drillRequest: DrillRequest) {//
         threadStorage.set(drillRequest)
         logger.trace { "session ${drillRequest.drillSessionId} saved" }
     }
